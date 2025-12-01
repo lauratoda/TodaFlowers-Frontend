@@ -3,9 +3,11 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import PrivateRoute from './components/PrivateRoute';
 import Pedidos from './components/Pedidos';
-import FacturaForm from './components/FacturaForm';
 import PedidoForm from './components/PedidoForm';
-import PedidoDetail from './components/PedidoDetail'; // 1. Importamos el nuevo componente
+import FacturaForm from './components/FacturaForm';
+import PedidoDetail from './components/PedidoDetail';
+import Clientes from './components/Clientes';
+import ClienteForm from './components/ClienteForm'; // 1. Importamos el nuevo componente
 import MainLayout from './components/MainLayout';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -28,7 +30,40 @@ function App() {
                     } 
                   />
 
-                  {/* Ruta para la lista de Pedidos */}
+                  {/* --- RUTAS DE CLIENTES --- */}
+                  <Route 
+                    path="/clientes" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <Clientes />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+                  {/* 2. Añadimos la ruta para el formulario de cliente (crear y editar) */}
+                  <Route 
+                    path="/clientes/nuevo" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <ClienteForm />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/clientes/:id" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <ClienteForm />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+
+                  {/* --- RUTAS DE PEDIDOS --- */}
                   <Route 
                     path="/pedidos" 
                     element={
@@ -39,8 +74,6 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
-
-                  {/* Ruta para el formulario de nuevo pedido */}
                   <Route 
                     path="/pedidos/nuevo" 
                     element={
@@ -51,8 +84,6 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
-
-                  {/* ruta para el detalle del pedido */}
                   <Route 
                     path="/pedidos/:id" 
                     element={
@@ -64,18 +95,18 @@ function App() {
                     } 
                   />
 
-                  {/* ruta para el formulario de factura */}
-                   <Route 
-                     path="/facturas/nuevo/:idPedido" 
-                     element={
-                       <PrivateRoute>
-                         <MainLayout>
-                           <FacturaForm />
-                         </MainLayout>
-                       </PrivateRoute>
-                     } 
-                   />
-                   
+                  {/* --- RUTAS DE FACTURACIÓN --- */}
+                  <Route 
+                    path="/facturas/nuevo/:idPedido" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <FacturaForm />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+
                   {/* La ruta principal ahora redirige al dashboard */}
                   <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
@@ -85,5 +116,3 @@ function App() {
 }
 
 export default App;
-
-
