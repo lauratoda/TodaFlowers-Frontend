@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal } from 'react-bootstrap';
+import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal, InputGroup } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
 
@@ -91,6 +91,26 @@ const PedidoDetail = () => {
         }
     };
 
+    // --- Función para NAVEGAR al formulario de facturación ---
+    const handleFacturarPedido = () => {
+        navigate(`/facturas/nuevo/${id}`);
+    };
+
+    // --- Función para generar un Remito ---
+    const handleRemitirPedido = async () => {
+        if (window.confirm('¿Estás segura de que quieres generar un remito para este pedido?')) {
+            try {
+                const response = await apiClient.post(`/pedidos/${id}/remitir`);
+                alert(`¡Remito #${response.data.numeroRemito} creado con éxito!`);
+                // Podríamos navegar a la página del remito en el futuro
+                fetchPedidoDetail();
+            } catch (err) {
+                setError('No se pudo generar el remito.');
+                console.error(err);
+            }
+        }
+    };
+
     // --- Funciones para el Modal de Edición ---
     const handleShowEditModal = (item) => {
         setEditingItem({ ...item }); // Copiamos el item para no modificar el original directamente
@@ -110,7 +130,9 @@ const PedidoDetail = () => {
             const requestBody = {
                 productoDescripcion: editingItem.productoDescripcion,
                 especificacion: editingItem.especificacion,
-                cantidadPedida: parseInt(editingItem.cantidadPedida)
+                cantidadPedida: parseInt(editingItem.cantidadPedida),
+                // Incluimos el precio en la actualización
+                precioUnitario: editingItem.precioUnitario ? parseFloat(editingItem.precioUnitario) : null
             };
             await apiClient.put(`/pedidos/items/${editingItem.idPedidoItem}`, requestBody);
             handleCloseEditModal();
@@ -119,6 +141,16 @@ const PedidoDetail = () => {
             console.error("Error al actualizar el ítem", err);
             // Aquí podrías añadir un estado de error para el modal
         }
+    };
+
+    // --- Función para calcular el total del pedido ---
+    const calcularTotalPedido = () => {
+        if (!pedido || !pedido.items) return '0.00';
+        return pedido.items.reduce((total, item) => {
+            const precio = parseFloat(item.precioUnitario) || 0;
+            const cantidad = parseInt(item.cantidadPedida) || 0;
+            return total + (precio * cantidad);
+        }, 0).toFixed(2);
     };
 
     if (loading) {
@@ -150,6 +182,16 @@ const PedidoDetail = () => {
                     <Button variant="secondary" onClick={() => navigate('/pedidos')}>
                         Volver a la Lista
                     </Button>
+                    {pedido.estado === 'ENTREGADO' && (
+                        <>
+                            <Button variant="info" onClick={handleFacturarPedido}>
+                                Facturar
+                            </Button>
+                            <Button variant="warning" onClick={handleRemitirPedido}>
+                                Remitir
+                            </Button>
+                        </>
+                    )}
                     {!isEntregadoOCancelado && (
                         <Button variant="success" onClick={handleEntregarPedido}>
                             Marcar como Entregado
@@ -169,11 +211,12 @@ const PedidoDetail = () => {
                     <Row>
                         <Col md={6}>
                             <p><strong>Cliente:</strong> {pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</p>
-                            <p><strong>Fecha de Entrega:</strong> {new Date(pedido.fechaEntrega).toLocaleDateString()}</p>
+                            <p><strong>Fecha de Entrega:</strong> {new Date(pedido.fechaEntrega).toLocaleDateString('es-AR')}</p>
                         </Col>
                         <Col md={6}>
                             <p><strong>Estado:</strong> {pedido.estado}</p>
-                            <p><strong>Fecha de Creación:</strong> {new Date(pedido.fechaCreacion).toLocaleString()}</p>
+                            {/* --- Mostramos el total del pedido --- */}
+                            <p><strong>Total Aproximado:</strong> ${calcularTotalPedido()}</p>
                         </Col>
                     </Row>
                     {pedido.notas && (
@@ -194,48 +237,55 @@ const PedidoDetail = () => {
                             <th>Cant.</th>
                             <th>Detalle</th>
                             <th>Especificación</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
                             <th>Observaciones</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {pedido.items.map(item => (
-                            <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
-                                <td className="text-center align-middle">
-                                    <Form.Check
-                                        type="checkbox"
-                                        checked={item.separado}
-                                        onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)}
-                                        disabled={isEntregadoOCancelado}
-                                    />
-                                </td>
-                                <td className="align-middle">{item.cantidadPedida}</td>
-                                <td className="align-middle">{item.productoDescripcion}</td>
-                                <td className="align-middle">{item.especificacion}</td>
-                                <td>
-                                    <Form.Control
-                                        type="text"
-                                        placeholder="Obs."
-                                        value={item.notasItem || ''}
-                                        onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)}
-                                        size="sm"
-                                        disabled={isEntregadoOCancelado}
-                                    />
-                                </td>
-                                <td className="text-center align-middle">
-                                    {!isEntregadoOCancelado && (
-                                        <div className="d-flex gap-2 justify-content-center">
-                                            <Button variant="outline-primary" size="sm" onClick={() => handleShowEditModal(item)}>
-                                                Editar
-                                            </Button>
-                                            <Button variant="outline-danger" size="sm" onClick={() => handleDeleteItem(item.idPedidoItem)}>
-                                                X
-                                            </Button>
-                                        </div>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                        {pedido.items.map(item => {
+                            const subtotal = (parseFloat(item.precioUnitario) || 0) * (parseInt(item.cantidadPedida) || 0);
+                            return (
+                                <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
+                                    <td className="text-center align-middle">
+                                        <Form.Check
+                                            type="checkbox"
+                                            checked={item.separado}
+                                            onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)}
+                                            disabled={isEntregadoOCancelado}
+                                        />
+                                    </td>
+                                    <td className="align-middle">{item.cantidadPedida}</td>
+                                    <td className="align-middle">{item.productoDescripcion}</td>
+                                    <td className="align-middle">{item.especificacion}</td>
+                                    <td className="align-middle text-end">${parseFloat(item.precioUnitario || 0).toFixed(2)}</td>
+                                    <td className="align-middle text-end">${subtotal.toFixed(2)}</td>
+                                    <td>
+                                        <Form.Control
+                                            type="text"
+                                            placeholder="Obs."
+                                            value={item.notasItem || ''}
+                                            onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)}
+                                            size="sm"
+                                            disabled={isEntregadoOCancelado}
+                                        />
+                                    </td>
+                                    <td className="text-center align-middle">
+                                        {!isEntregadoOCancelado && (
+                                            <div className="d-flex gap-2 justify-content-center">
+                                                <Button variant="outline-primary" size="sm" onClick={() => handleShowEditModal(item)}>
+                                                    Editar
+                                                </Button>
+                                                <Button variant="outline-danger" size="sm" onClick={() => handleDeleteItem(item.idPedidoItem)}>
+                                                    X
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </Table>
             </Card>
@@ -274,6 +324,20 @@ const PedidoDetail = () => {
                                     min="1"
                                     required
                                 />
+                            </Form.Group>
+                            {/* --- Añadimos el campo de precio al modal de edición --- */}
+                            <Form.Group className="mb-3">
+                                <Form.Label>Precio Unitario</Form.Label>
+                                <InputGroup>
+                                    <InputGroup.Text>$</InputGroup.Text>
+                                    <Form.Control
+                                        type="number"
+                                        value={editingItem.precioUnitario || ''}
+                                        onChange={(e) => setEditingItem({ ...editingItem, precioUnitario: e.target.value })}
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </InputGroup>
                             </Form.Group>
                             <Button variant="primary" type="submit">
                                 Guardar Cambios

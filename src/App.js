@@ -3,6 +3,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import PrivateRoute from './components/PrivateRoute';
 import Pedidos from './components/Pedidos';
+import FacturaForm from './components/FacturaForm';
 import PedidoForm from './components/PedidoForm';
 import PedidoDetail from './components/PedidoDetail'; // 1. Importamos el nuevo componente
 import MainLayout from './components/MainLayout';
@@ -51,7 +52,7 @@ function App() {
                     } 
                   />
 
-                  {/* 2. Añadimos la nueva ruta para el detalle del pedido */}
+                  {/* ruta para el detalle del pedido */}
                   <Route 
                     path="/pedidos/:id" 
                     element={
@@ -63,6 +64,18 @@ function App() {
                     } 
                   />
 
+                  {/* ruta para el formulario de factura */}
+                   <Route 
+                     path="/facturas/nuevo/:idPedido" 
+                     element={
+                       <PrivateRoute>
+                         <MainLayout>
+                           <FacturaForm />
+                         </MainLayout>
+                       </PrivateRoute>
+                     } 
+                   />
+                   
                   {/* La ruta principal ahora redirige al dashboard */}
                   <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
