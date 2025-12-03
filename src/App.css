@@ -1,38 +1,29 @@
-.App {
-  text-align: center;
+/* --- ESTILOS PARA LA TABLA DE PEDIDOS (VERSIÓN MEJORADA) --- */
+
+/*
+  Este selector es más específico y utiliza las variables CSS de Bootstrap 5
+  para garantizar que nuestro estilo tenga prioridad.
+*/
+.table > tbody > tr.pedido-entregado {
+    /*
+      --bs-table-bg: Define el color de fondo normal de la fila.
+      --bs-table-striped-bg: Define el color de fondo para las filas "rayadas".
+      Al establecer ambos con nuestro color, eliminamos el efecto de cebra.
+    */
+    --bs-table-bg: #d1ecf1;
+    --bs-table-striped-bg: #d1ecf1;
+    
+    /*
+      Opcional: También podemos definir el color del texto para asegurar el contraste.
+    */
+    --bs-table-color: #0c5460;
+    --bs-table-striped-color: #0c5460;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/*
+  También sobreescribimos la variable para el efecto 'hover' (cuando el ratón pasa por encima).
+*/
+.table > tbody > tr.pedido-entregado:hover {
+    --bs-table-hover-bg: #bce8f1; /* Un celeste un poco más intenso */
+    --bs-table-hover-color: #0c5460;
 }

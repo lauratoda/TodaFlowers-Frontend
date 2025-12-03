@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 1. AÑADIMOS Card y Form a la lista de importaciones
 import { Container, Table, Spinner, Alert, Button, Row, Col, ButtonGroup, Card, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
@@ -70,6 +69,7 @@ const Pedidos = () => {
         }
 
         return (
+            // La propiedad 'striped' de la tabla se mantiene, pero nuestro CSS la sobreescribirá cuando sea necesario.
             <Table striped bordered hover responsive className="mt-4">
                 <thead>
                     <tr>
@@ -81,7 +81,14 @@ const Pedidos = () => {
                 </thead>
                 <tbody>
                     {pedidos.map(pedido => (
-                        <tr key={pedido.idPedido} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)} style={{ cursor: 'pointer' }}>
+                        // --- CAMBIO AQUÍ ---
+                        // Añadimos una clase condicional a la fila si el pedido está 'ENTREGADO'
+                        <tr
+                            key={pedido.idPedido}
+                            onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}
+                            style={{ cursor: 'pointer' }}
+                            className={pedido.estado === 'ENTREGADO' ? 'pedido-entregado' : ''}
+                        >
                             <td>{pedido.idPedido}</td>
                             <td>{pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</td>
                             <td>{pedido.estado}</td>
@@ -145,7 +152,3 @@ const Pedidos = () => {
 };
 
 export default Pedidos;
-
-
-
-

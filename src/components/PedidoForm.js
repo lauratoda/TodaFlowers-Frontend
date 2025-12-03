@@ -25,7 +25,10 @@ const PedidoForm = () => {
         const fetchClientes = async () => {
             try {
                 const response = await apiClient.get('/clientes');
-                setClientes(response.data);
+                // --- CORRECCIÓN AQUÍ ---
+                // El backend devuelve un objeto de paginación, los clientes están en 'content'.
+                // Nos aseguramos de que sea un array con '|| []'.
+                setClientes(response.data.content || []);
             } catch (err) {
                 setError('No se pudo cargar la lista de clientes.');
             } finally {
