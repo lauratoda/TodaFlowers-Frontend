@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal, InputGroup } from 'react-bootstrap';
+import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal, InputGroup, ButtonGroup } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
 
@@ -9,12 +9,11 @@ const PedidoDetail = () => {
     const [pedido, setPedido] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    // --- Estados para el Modal de Edición ---
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
     const fetchPedidoDetail = async () => {
+        setLoading(true);
         try {
             const response = await apiClient.get(`/pedidos/${id}`);
             setPedido(response.data);
@@ -49,7 +48,7 @@ const PedidoDetail = () => {
             await apiClient.put(`/pedidos/items/${idPedidoItem}/checklist`, updatePayload);
             fetchPedidoDetail();
         } catch (err) {
-            setError('No se pudo actualizar el item. Re-intentando...');
+            setError('No se pudo actualizar el item.');
             setPedido(originalPedido);
             console.error(err);
         }
@@ -91,18 +90,12 @@ const PedidoDetail = () => {
         }
     };
 
-    // --- Función para NAVEGAR al formulario de facturación ---
-    const handleFacturarPedido = () => {
-        navigate(`/facturas/nuevo/${id}`);
-    };
-
-    // --- Función para generar un Remito ---
+    const handleFacturarPedido = () => navigate(`/facturas/nuevo/${id}`);
     const handleRemitirPedido = async () => {
         if (window.confirm('¿Estás segura de que quieres generar un remito para este pedido?')) {
             try {
                 const response = await apiClient.post(`/pedidos/${id}/remitir`);
                 alert(`¡Remito #${response.data.numeroRemito} creado con éxito!`);
-                // Podríamos navegar a la página del remito en el futuro
                 fetchPedidoDetail();
             } catch (err) {
                 setError('No se pudo generar el remito.');
@@ -111,9 +104,8 @@ const PedidoDetail = () => {
         }
     };
 
-    // --- Funciones para el Modal de Edición ---
     const handleShowEditModal = (item) => {
-        setEditingItem({ ...item }); // Copiamos el item para no modificar el original directamente
+        setEditingItem({ ...item });
         setShowEditModal(true);
     };
 
@@ -125,25 +117,21 @@ const PedidoDetail = () => {
     const handleUpdateItem = async (e) => {
         e.preventDefault();
         if (!editingItem) return;
-
         try {
             const requestBody = {
                 productoDescripcion: editingItem.productoDescripcion,
                 especificacion: editingItem.especificacion,
                 cantidadPedida: parseInt(editingItem.cantidadPedida),
-                // Incluimos el precio en la actualización
                 precioUnitario: editingItem.precioUnitario ? parseFloat(editingItem.precioUnitario) : null
             };
             await apiClient.put(`/pedidos/items/${editingItem.idPedidoItem}`, requestBody);
             handleCloseEditModal();
-            fetchPedidoDetail(); // Recargamos los datos para ver los cambios
+            fetchPedidoDetail();
         } catch (err) {
             console.error("Error al actualizar el ítem", err);
-            // Aquí podrías añadir un estado de error para el modal
         }
     };
 
-    // --- Función para calcular el total del pedido ---
     const calcularTotalPedido = () => {
         if (!pedido || !pedido.items) return '0.00';
         return pedido.items.reduce((total, item) => {
@@ -153,54 +141,35 @@ const PedidoDetail = () => {
         }, 0).toFixed(2);
     };
 
-    if (loading) {
-        return (
-            <Container className="mt-4 text-center">
-                <Spinner animation="border" />
-                <p>Cargando detalle del pedido...</p>
-            </Container>
-        );
-    }
+    if (loading) return <Container className="mt-4 text-center"><Spinner animation="border" /><p>Cargando detalle...</p></Container>;
+    if (error) return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
+    if (!pedido) return <Container className="mt-4"><Alert variant="warning">No se encontró el pedido.</Alert></Container>;
 
-    if (error) {
-        return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
-    }
-
-    if (!pedido) {
-        return <Container className="mt-4"><Alert variant="warning">No se encontró el pedido.</Alert></Container>;
-    }
-
-    const isEntregadoOCancelado = pedido.estado === 'ENTREGADO' || pedido.estado === 'CANCELADO';
+    const isFinalizado = pedido.estado === 'ENTREGADO' || pedido.estado === 'CANCELADO';
 
     return (
         <Container className="mt-4">
             <Row className="align-items-center mb-4">
-                <Col>
-                    <h1>Detalle del Pedido #{pedido.idPedido}</h1>
-                </Col>
-                <Col xs="auto" className="d-flex gap-2">
-                    <Button variant="secondary" onClick={() => navigate('/pedidos')}>
-                        Volver a la Lista
-                    </Button>
+                <Col><h1>Detalle del Pedido #{pedido.idPedido}</h1></Col>
+                <Col xs="auto" className="d-flex flex-wrap justify-content-end gap-2">
+                    <Button variant="secondary" onClick={() => navigate('/pedidos')}>Volver</Button>
+                    {/* --- CAMBIO AQUÍ: Botón para ir al formulario de edición --- */}
+                    {!isFinalizado && (
+                        <Button variant="primary" onClick={() => navigate(`/pedidos/editar/${id}`)}>
+                            Editar Pedido
+                        </Button>
+                    )}
                     {pedido.estado === 'ENTREGADO' && (
                         <>
-                            <Button variant="info" onClick={handleFacturarPedido}>
-                                Facturar
-                            </Button>
-                            <Button variant="warning" onClick={handleRemitirPedido}>
-                                Remitir
-                            </Button>
+                            <Button variant="info" onClick={handleFacturarPedido}>Facturar</Button>
+                            <Button variant="warning" onClick={handleRemitirPedido}>Remitir</Button>
                         </>
                     )}
-                    {!isEntregadoOCancelado && (
-                        <Button variant="success" onClick={handleEntregarPedido}>
-                            Marcar como Entregado
-                        </Button>
+                    {!isFinalizado && (
+                        <Button variant="success" onClick={handleEntregarPedido}>Marcar como Entregado</Button>
                     )}
-                    {!isEntregadoOCancelado && (
-                        <Button variant="danger" onClick={handleDeletePedido}>
-                            Eliminar Pedido
-                        </Button>
+                    {!isFinalizado && (
+                        <Button variant="danger" onClick={handleDeletePedido}>Eliminar Pedido</Button>
                     )}
                 </Col>
             </Row>
@@ -215,16 +184,10 @@ const PedidoDetail = () => {
                         </Col>
                         <Col md={6}>
                             <p><strong>Estado:</strong> {pedido.estado}</p>
-                            {/* --- Mostramos el total del pedido --- */}
                             <p><strong>Total Aproximado:</strong> ${calcularTotalPedido()}</p>
                         </Col>
                     </Row>
-                    {pedido.notas && (
-                        <>
-                            <hr />
-                            <p><strong>Notas:</strong> {pedido.notas}</p>
-                        </>
-                    )}
+                    {pedido.notas && <><hr /><p><strong>Notas:</strong> {pedido.notas}</p></>}
                 </Card.Body>
             </Card>
 
@@ -233,14 +196,7 @@ const PedidoDetail = () => {
                 <Table striped bordered hover responsive>
                     <thead>
                         <tr>
-                            <th>OK</th>
-                            <th>Cant.</th>
-                            <th>Detalle</th>
-                            <th>Especificación</th>
-                            <th>Precio Unit.</th>
-                            <th>Subtotal</th>
-                            <th>Observaciones</th>
-                            <th>Acciones</th>
+                            <th>OK</th><th>Cant.</th><th>Detalle</th><th>Especificación</th><th>Precio Unit.</th><th>Subtotal</th><th>Observaciones</th><th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -248,39 +204,19 @@ const PedidoDetail = () => {
                             const subtotal = (parseFloat(item.precioUnitario) || 0) * (parseInt(item.cantidadPedida) || 0);
                             return (
                                 <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
-                                    <td className="text-center align-middle">
-                                        <Form.Check
-                                            type="checkbox"
-                                            checked={item.separado}
-                                            onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)}
-                                            disabled={isEntregadoOCancelado}
-                                        />
-                                    </td>
+                                    <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)} disabled={isFinalizado} /></td>
                                     <td className="align-middle">{item.cantidadPedida}</td>
                                     <td className="align-middle">{item.productoDescripcion}</td>
                                     <td className="align-middle">{item.especificacion}</td>
                                     <td className="align-middle text-end">${parseFloat(item.precioUnitario || 0).toFixed(2)}</td>
                                     <td className="align-middle text-end">${subtotal.toFixed(2)}</td>
-                                    <td>
-                                        <Form.Control
-                                            type="text"
-                                            placeholder="Obs."
-                                            value={item.notasItem || ''}
-                                            onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)}
-                                            size="sm"
-                                            disabled={isEntregadoOCancelado}
-                                        />
-                                    </td>
+                                    <td><Form.Control type="text" placeholder="Obs." value={item.notasItem || ''} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)} size="sm" disabled={isFinalizado} /></td>
                                     <td className="text-center align-middle">
-                                        {!isEntregadoOCancelado && (
-                                            <div className="d-flex gap-2 justify-content-center">
-                                                <Button variant="outline-primary" size="sm" onClick={() => handleShowEditModal(item)}>
-                                                    Editar
-                                                </Button>
-                                                <Button variant="outline-danger" size="sm" onClick={() => handleDeleteItem(item.idPedidoItem)}>
-                                                    X
-                                                </Button>
-                                            </div>
+                                        {!isFinalizado && (
+                                            <ButtonGroup size="sm">
+                                                <Button variant="outline-primary" onClick={() => handleShowEditModal(item)}>Editar</Button>
+                                                <Button variant="outline-danger" onClick={() => handleDeleteItem(item.idPedidoItem)}>X</Button>
+                                            </ButtonGroup>
                                         )}
                                     </td>
                                 </tr>
@@ -290,58 +226,22 @@ const PedidoDetail = () => {
                 </Table>
             </Card>
 
-            {/* --- Modal de Edición de Ítem --- */}
             <Modal show={showEditModal} onHide={handleCloseEditModal}>
-                <Modal.Header closeButton>
-                    <Modal.Title>Editar Ítem</Modal.Title>
-                </Modal.Header>
+                <Modal.Header closeButton><Modal.Title>Editar Ítem</Modal.Title></Modal.Header>
                 <Modal.Body>
                     {editingItem && (
                         <Form onSubmit={handleUpdateItem}>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Descripción del Producto</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={editingItem.productoDescripcion}
-                                    onChange={(e) => setEditingItem({ ...editingItem, productoDescripcion: e.target.value })}
-                                    required
-                                />
-                            </Form.Group>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Especificación (Color, Largo, etc.)</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={editingItem.especificacion}
-                                    onChange={(e) => setEditingItem({ ...editingItem, especificacion: e.target.value })}
-                                />
-                            </Form.Group>
-                            <Form.Group className="mb-3">
-                                <Form.Label>Cantidad</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    value={editingItem.cantidadPedida}
-                                    onChange={(e) => setEditingItem({ ...editingItem, cantidadPedida: e.target.value })}
-                                    min="1"
-                                    required
-                                />
-                            </Form.Group>
-                            {/* --- Añadimos el campo de precio al modal de edición --- */}
+                            <Form.Group className="mb-3"><Form.Label>Descripción</Form.Label><Form.Control type="text" value={editingItem.productoDescripcion} onChange={(e) => setEditingItem({ ...editingItem, productoDescripcion: e.target.value })} required /></Form.Group>
+                            <Form.Group className="mb-3"><Form.Label>Especificación</Form.Label><Form.Control type="text" value={editingItem.especificacion} onChange={(e) => setEditingItem({ ...editingItem, especificacion: e.target.value })} /></Form.Group>
+                            <Form.Group className="mb-3"><Form.Label>Cantidad</Form.Label><Form.Control type="number" value={editingItem.cantidadPedida} onChange={(e) => setEditingItem({ ...editingItem, cantidadPedida: e.target.value })} min="1" required /></Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Precio Unitario</Form.Label>
                                 <InputGroup>
                                     <InputGroup.Text>$</InputGroup.Text>
-                                    <Form.Control
-                                        type="number"
-                                        value={editingItem.precioUnitario || ''}
-                                        onChange={(e) => setEditingItem({ ...editingItem, precioUnitario: e.target.value })}
-                                        step="0.01"
-                                        min="0"
-                                    />
+                                    <Form.Control type="number" value={editingItem.precioUnitario || ''} onChange={(e) => setEditingItem({ ...editingItem, precioUnitario: e.target.value })} step="0.01" min="0" />
                                 </InputGroup>
                             </Form.Group>
-                            <Button variant="primary" type="submit">
-                                Guardar Cambios
-                            </Button>
+                            <Button variant="primary" type="submit">Guardar Cambios</Button>
                         </Form>
                     )}
                 </Modal.Body>
@@ -351,5 +251,3 @@ const PedidoDetail = () => {
 };
 
 export default PedidoDetail;
-
-

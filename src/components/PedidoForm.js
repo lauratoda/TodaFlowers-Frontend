@@ -1,44 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Form, Button, Card, Row, Col, Spinner, Alert, InputGroup } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../api/api';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
 const PedidoForm = () => {
-    // Estados para el formulario principal
+    const { id } = useParams(); // Obtenemos el ID de la URL
+    const isEditing = !!id; // True si hay un ID, false si no (estamos creando)
+    const navigate = useNavigate();
+
+    // Estados del formulario
     const [clientes, setClientes] = useState([]);
     const [idCliente, setIdCliente] = useState('');
     const [fechaEntrega, setFechaEntrega] = useState(new Date());
     const [notas, setNotas] = useState('');
-
-    // Estado para la lista dinámica de items, ahora con 'precioUnitario'
     const [items, setItems] = useState([{ productoDescripcion: '', especificacion: '', cantidadPedida: 1, precioUnitario: '' }]);
-
-    // Estados para la carga y errores
+    
+    // Estados de UI
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const navigate = useNavigate();
 
-    // Cargar la lista de clientes cuando el componente se monta
     useEffect(() => {
-        const fetchClientes = async () => {
+        const fetchData = async () => {
             try {
-                const response = await apiClient.get('/clientes');
-                // --- CORRECCIÓN AQUÍ ---
-                // El backend devuelve un objeto de paginación, los clientes están en 'content'.
-                // Nos aseguramos de que sea un array con '|| []'.
-                setClientes(response.data.content || []);
+                // Siempre cargamos los clientes
+                const clientesResponse = await apiClient.get('/clientes');
+                setClientes(clientesResponse.data.content || []);
+
+                // Si estamos editando, cargamos los datos del pedido
+                if (isEditing) {
+                    const pedidoResponse = await apiClient.get(`/pedidos/${id}`);
+                    const pedido = pedidoResponse.data;
+                    
+                    // Pre-populamos el formulario con los datos del pedido
+                    setIdCliente(pedido.cliente.idCliente);
+                    setFechaEntrega(new Date(pedido.fechaEntrega));
+                    setNotas(pedido.notas || '');
+                    setItems(pedido.items.length > 0 ? pedido.items : [{ productoDescripcion: '', especificacion: '', cantidadPedida: 1, precioUnitario: '' }]);
+                }
             } catch (err) {
-                setError('No se pudo cargar la lista de clientes.');
+                setError('No se pudo cargar la información necesaria.');
+                console.error(err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchClientes();
-    }, []);
+        fetchData();
+    }, [id, isEditing]);
 
-    // --- Funciones para manejar los items dinámicos ---
     const handleItemChange = (index, event) => {
         const newItems = [...items];
         newItems[index][event.target.name] = event.target.value;
@@ -54,7 +64,6 @@ const PedidoForm = () => {
         setItems(newItems);
     };
 
-    // --- Función para enviar el formulario ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -69,23 +78,29 @@ const PedidoForm = () => {
             fechaEntrega: fechaEntrega.toISOString().split('T')[0],
             notas,
             items: items.map(item => ({
-                ...item,
+                idPedidoItem: item.idPedidoItem || null, // Importante para la actualización
+                productoDescripcion: item.productoDescripcion,
+                especificacion: item.especificacion,
                 cantidadPedida: parseInt(item.cantidadPedida),
-                // Aseguramos que el precio se envíe como número o como null si está vacío
                 precioUnitario: item.precioUnitario ? parseFloat(item.precioUnitario) : null,
             })),
         };
 
         try {
-            await apiClient.post('/pedidos', pedidoData);
-            navigate('/pedidos'); // Redirige a la lista de pedidos si es exitoso
+            if (isEditing) {
+                // Si estamos editando, usamos PUT
+                await apiClient.put(`/pedidos/${id}`, pedidoData);
+            } else {
+                // Si estamos creando, usamos POST
+                await apiClient.post('/pedidos', pedidoData);
+            }
+            navigate('/pedidos');
         } catch (err) {
-            setError('Error al crear el pedido. Revisa los datos e intenta de nuevo.');
+            setError(`Error al ${isEditing ? 'actualizar' : 'crear'} el pedido. Revisa los datos.`);
             console.error(err);
         }
     };
 
-    // --- Cálculo del total del pedido ---
     const calcularTotalPedido = () => {
         return items.reduce((total, item) => {
             const precio = parseFloat(item.precioUnitario) || 0;
@@ -98,7 +113,8 @@ const PedidoForm = () => {
 
     return (
         <Container className="mt-4">
-            <h1>Crear Nuevo Pedido</h1>
+            {/* --- CAMBIO AQUÍ: Título dinámico --- */}
+            <h1>{isEditing ? `Editar Pedido #${id}` : 'Crear Nuevo Pedido'}</h1>
             {error && <Alert variant="danger">{error}</Alert>}
             <Form onSubmit={handleSubmit}>
                 <Card className="p-3">
@@ -106,7 +122,7 @@ const PedidoForm = () => {
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label>Cliente</Form.Label>
-                                <Form.Select value={idCliente} onChange={(e) => setIdCliente(e.target.value)}>
+                                <Form.Select value={idCliente} onChange={(e) => setIdCliente(e.target.value)} disabled={isEditing}>
                                     <option value="">Selecciona un cliente...</option>
                                     {clientes.map(cliente => (
                                         <option key={cliente.idCliente} value={cliente.idCliente}>
@@ -119,12 +135,7 @@ const PedidoForm = () => {
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label>Fecha de Entrega</Form.Label>
-                                <DatePicker
-                                    selected={fechaEntrega}
-                                    onChange={(date) => setFechaEntrega(date)}
-                                    dateFormat="dd/MM/yyyy"
-                                    className="form-control"
-                                />
+                                <DatePicker selected={fechaEntrega} onChange={(date) => setFechaEntrega(date)} dateFormat="dd/MM/yyyy" className="form-control" />
                             </Form.Group>
                         </Col>
                     </Row>
@@ -132,46 +143,32 @@ const PedidoForm = () => {
                         <Form.Label>Notas Generales</Form.Label>
                         <Form.Control as="textarea" rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />
                     </Form.Group>
-
                     <hr />
                     <h5>Items del Pedido</h5>
                     {items.map((item, index) => {
                         const subtotal = (parseFloat(item.precioUnitario) || 0) * (parseInt(item.cantidadPedida) || 0);
                         return (
-                            <Row key={index} className="mb-2 align-items-center">
-                                <Col md={4}>
-                                    <Form.Control type="text" name="productoDescripcion" placeholder="Descripción" value={item.productoDescripcion} onChange={(e) => handleItemChange(index, e)} required />
-                                </Col>
-                                <Col md={3}>
-                                    <Form.Control type="text" name="especificacion" placeholder="Especificación" value={item.especificacion} onChange={(e) => handleItemChange(index, e)} />
-                                </Col>
-                                <Col md={2}>
-                                    <Form.Control type="number" name="cantidadPedida" placeholder="Cant." value={item.cantidadPedida} onChange={(e) => handleItemChange(index, e)} min="1" required />
-                                </Col>
+                            <Row key={item.idPedidoItem || index} className="mb-2 align-items-center">
+                                <Col md={4}><Form.Control type="text" name="productoDescripcion" placeholder="Descripción" value={item.productoDescripcion} onChange={(e) => handleItemChange(index, e)} required /></Col>
+                                <Col md={3}><Form.Control type="text" name="especificacion" placeholder="Especificación" value={item.especificacion} onChange={(e) => handleItemChange(index, e)} /></Col>
+                                <Col md={2}><Form.Control type="number" name="cantidadPedida" placeholder="Cant." value={item.cantidadPedida} onChange={(e) => handleItemChange(index, e)} min="1" required /></Col>
                                 <Col md={2}>
                                     <InputGroup>
                                         <InputGroup.Text>$</InputGroup.Text>
-                                        <Form.Control type="number" name="precioUnitario" placeholder="Precio" value={item.precioUnitario} onChange={(e) => handleItemChange(index, e)} step="0.01" min="0" />
+                                        <Form.Control type="number" name="precioUnitario" placeholder="Precio" value={item.precioUnitario || ''} onChange={(e) => handleItemChange(index, e)} step="0.01" min="0" />
                                     </InputGroup>
                                 </Col>
-                                <Col md={1}>
-                                    <Button variant="danger" size="sm" onClick={() => handleRemoveItem(index)}>&times;</Button>
-                                </Col>
-                                <Col xs={12} className="text-end">
-                                    <small>Subtotal: ${subtotal.toFixed(2)}</small>
-                                </Col>
+                                <Col md={1}><Button variant="danger" size="sm" onClick={() => handleRemoveItem(index)}>&times;</Button></Col>
+                                <Col xs={12} className="text-end"><small>Subtotal: ${subtotal.toFixed(2)}</small></Col>
                             </Row>
                         );
                     })}
                     <Button variant="secondary" onClick={handleAddItem} className="mt-2">Añadir Item</Button>
-                    
-                    <div className="text-end mt-3">
-                        <h4>Total Aproximado: ${calcularTotalPedido()}</h4>
-                    </div>
+                    <div className="text-end mt-3"><h4>Total Aproximado: ${calcularTotalPedido()}</h4></div>
                 </Card>
-
-                <div className="mt-3">
-                    <Button variant="primary" type="submit">Guardar Pedido</Button>
+                <div className="mt-3 d-flex justify-content-end gap-2">
+                    <Button variant="secondary" onClick={() => navigate('/pedidos')}>Cancelar</Button>
+                    <Button variant="primary" type="submit">{isEditing ? 'Guardar Cambios' : 'Guardar Pedido'}</Button>
                 </div>
             </Form>
         </Container>

@@ -7,7 +7,7 @@ import PedidoForm from './components/PedidoForm';
 import FacturaForm from './components/FacturaForm';
 import PedidoDetail from './components/PedidoDetail';
 import Clientes from './components/Clientes';
-import ClienteForm from './components/ClienteForm'; // 1. Importamos el nuevo componente
+import ClienteForm from './components/ClienteForm';
 import MainLayout from './components/MainLayout';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -18,7 +18,6 @@ function App() {
               <Routes>
                   <Route path="/login" element={<Login />} />
                   
-                  {/* Ruta para el Dashboard */}
                   <Route 
                     path="/dashboard" 
                     element={
@@ -41,7 +40,6 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
-                  {/* 2. Añadimos la ruta para el formulario de cliente (crear y editar) */}
                   <Route 
                     path="/clientes/nuevo" 
                     element={
@@ -76,6 +74,17 @@ function App() {
                   />
                   <Route 
                     path="/pedidos/nuevo" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <PedidoForm />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+                  {/* --- RUTA AÑADIDA PARA EDICIÓN --- */}
+                  <Route 
+                    path="/pedidos/editar/:id" 
                     element={
                       <PrivateRoute>
                         <MainLayout>
