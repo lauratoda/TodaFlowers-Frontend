@@ -56,6 +56,20 @@ const Pedidos = () => {
         }
     };
 
+    // --- FUNCIÓN PARA OBTENER LA CLASE CSS BASADA EN EL ESTADO ---
+    const getRowClass = (estado) => {
+        switch (estado) {
+            case 'ENTREGADO':
+                return 'pedido-entregado';
+            case 'REMITIDO':
+                return 'pedido-remitido';
+            case 'FACTURADO':
+                return 'pedido-facturado';
+            default:
+                return '';
+        }
+    };
+
     const renderPedidos = () => {
         if (loading) {
             return <div className="text-center mt-4"><Spinner animation="border" /><p>Cargando pedidos...</p></div>;
@@ -76,11 +90,11 @@ const Pedidos = () => {
                 </thead>
                 <tbody>
                     {pedidos.map(pedido => {
-                        const isFinalizado = pedido.estado === 'ENTREGADO' || pedido.estado === 'CANCELADO';
+                        const isEditable = !['ENTREGADO', 'CANCELADO', 'REMITIDO', 'FACTURADO'].includes(pedido.estado);
                         return (
                             <tr
                                 key={pedido.idPedido}
-                                className={pedido.estado === 'ENTREGADO' ? 'pedido-entregado' : ''}
+                                className={getRowClass(pedido.estado)}
                             >
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.idPedido}</td>
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</td>
@@ -88,8 +102,7 @@ const Pedidos = () => {
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.notas}</td>
                                 
                                 <td className="text-center">
-                                    {!isFinalizado && (
-                                        // --- CAMBIO AQUÍ ---
+                                    {isEditable && (
                                         <div className="d-flex justify-content-center gap-2">
                                             <Button 
                                                 variant="outline-primary"

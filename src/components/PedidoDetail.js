@@ -13,10 +13,10 @@ const PedidoDetail = () => {
     const [editingItem, setEditingItem] = useState(null);
 
     const fetchPedidoDetail = async () => {
-        setLoading(true);
         try {
             const response = await apiClient.get(`/pedidos/${id}`);
             setPedido(response.data);
+            setError(''); 
         } catch (err) {
             setError('No se pudo cargar el detalle del pedido.');
             console.error(err);
@@ -26,79 +26,61 @@ const PedidoDetail = () => {
     };
 
     useEffect(() => {
+        setLoading(true);
         fetchPedidoDetail();
     }, [id]);
 
-    const handleChecklistItemUpdate = async (idPedidoItem, field, value) => {
-        const currentItem = pedido.items.find(i => i.idPedidoItem === idPedidoItem);
-        if (!currentItem) return;
-
-        const updatePayload = {
-            separado: field === 'separado' ? value : currentItem.separado,
-            notasItem: field === 'notasItem' ? value : currentItem.notasItem,
-        };
-
-        const originalPedido = { ...pedido };
-        const updatedItems = pedido.items.map(item =>
-            item.idPedidoItem === idPedidoItem ? { ...item, [field]: value } : item
-        );
-        setPedido({ ...pedido, items: updatedItems });
-
+    // --- FUNCIÓN REFACTORIZADA PARA MANEJAR ACCIONES ---
+    const handleAction = async (action, confirmMessage, successMessage, errorMessage) => {
+        if (confirmMessage && !window.confirm(confirmMessage)) {
+            return;
+        }
+        
         try {
-            await apiClient.put(`/pedidos/items/${idPedidoItem}/checklist`, updatePayload);
+            await action();
+            if (successMessage) alert(successMessage);
+            // --- LA CLAVE ESTÁ AQUÍ: Volvemos a cargar los datos ---
+            setLoading(true);
+
             fetchPedidoDetail();
         } catch (err) {
-            setError('No se pudo actualizar el item.');
-            setPedido(originalPedido);
+            setError(err.response?.data?.message || errorMessage);
             console.error(err);
         }
     };
+    
+    const handleEntregarPedido = () => handleAction(
+        () => apiClient.put(`/pedidos/${id}/entregar`),
+        '¿Estás segura de que quieres marcar este pedido como ENTREGADO?',
+        null, // No mostramos alert para esta acción
+        'No se pudo marcar el pedido como entregado.'
+    );
 
-    const handleEntregarPedido = async () => {
-        if (window.confirm('¿Estás segura de que quieres marcar este pedido como ENTREGADO?')) {
-            try {
-                const response = await apiClient.put(`/pedidos/${id}/entregar`);
-                setPedido(response.data);
-            } catch (err) {
-                setError('No se pudo marcar el pedido como entregado.');
-                console.error(err);
-            }
-        }
-    };
+    const handleRemitirPedido = () => handleAction(
+        () => apiClient.post(`/pedidos/${id}/remitir`),
+        '¿Estás segura de que quieres generar un remito para este pedido?',
+        '¡Remito creado con éxito!',
+        'No se pudo generar el remito.'
+    );
 
-    const handleDeletePedido = async () => {
-        if (window.confirm('¿Estás ABSOLUTAMENTE SEGURA de que quieres eliminar este pedido? Esta acción no se puede deshacer.')) {
-            try {
-                await apiClient.delete(`/pedidos/${id}`);
-                navigate('/pedidos');
-            } catch (err) {
-                setError('No se pudo eliminar el pedido.');
-                console.error(err);
-            }
-        }
-    };
+    const handleFacturarPedido = () => navigate(`/facturas/nuevo/${id}`);
 
+    const handleDeletePedido = () => handleAction(
+        () => apiClient.delete(`/pedidos/${id}`),
+        '¿Estás ABSOLUTAMENTE SEGURA de que quieres eliminar este pedido? Esta acción no se puede deshacer.',
+        null,
+        'No se pudo eliminar el pedido.'
+    ).then(() => navigate('/pedidos'));
+
+
+    // (El resto de las funciones de manejo de items, modales, etc. no necesitan cambios)
     const handleDeleteItem = async (idPedidoItem) => {
         if (window.confirm('¿Segura que quieres eliminar este ítem del pedido?')) {
             try {
                 await apiClient.delete(`/pedidos/items/${idPedidoItem}`);
                 fetchPedidoDetail();
             } catch (err) {
-                setError('No se pudo eliminar el ítem.');
-                console.error(err);
-            }
-        }
-    };
-
-    const handleFacturarPedido = () => navigate(`/facturas/nuevo/${id}`);
-    const handleRemitirPedido = async () => {
-        if (window.confirm('¿Estás segura de que quieres generar un remito para este pedido?')) {
-            try {
-                const response = await apiClient.post(`/pedidos/${id}/remitir`);
-                alert(`¡Remito #${response.data.numeroRemito} creado con éxito!`);
-                fetchPedidoDetail();
-            } catch (err) {
-                setError('No se pudo generar el remito.');
+                setError(err.response?.data?.message || 'No se pudo eliminar el ítem.');
                 console.error(err);
             }
         }
@@ -131,7 +113,7 @@ const PedidoDetail = () => {
             console.error("Error al actualizar el ítem", err);
         }
     };
-
+    
     const calcularTotalPedido = () => {
         if (!pedido || !pedido.items) return '0.00';
         return pedido.items.reduce((total, item) => {
@@ -141,35 +123,60 @@ const PedidoDetail = () => {
         }, 0).toFixed(2);
     };
 
-    if (loading) return <Container className="mt-4 text-center"><Spinner animation="border" /><p>Cargando detalle...</p></Container>;
-    if (error) return <Container className="mt-4"><Alert variant="danger">{error}</Alert></Container>;
-    if (!pedido) return <Container className="mt-4"><Alert variant="warning">No se encontró el pedido.</Alert></Container>;
 
-    const isFinalizado = pedido.estado === 'ENTREGADO' || pedido.estado === 'CANCELADO';
+    if (loading) {
+        return <Container className="mt-4 text-center"><Spinner animation="border" /><p>Cargando detalle...</p></Container>;
+    }
+
+    if (!pedido) {
+        return (
+            <Container className="mt-4">
+                <Alert variant="warning">No se encontró el pedido o hubo un error al cargarlo.</Alert>
+                <Button variant="secondary" onClick={() => navigate('/pedidos')}>Volver a la Lista</Button>
+            </Container>
+        );
+    }
+
+    // La lógica para deshabilitar botones ahora es más precisa
+    const puedeEditar = !['ENTREGADO', 'CANCELADO', 'REMITIDO', 'FACTURADO'].includes(pedido.estado);
+    const puedeEntregar = ['PENDIENTE', 'EN_PREPARACION', 'PREPARADO_COMPLETO', 'PREPARADO_INCOMPLETO', 'LISTO_PARA_DESPACHO'].includes(pedido.estado);
+    const puedeRemitir = pedido.estado === 'ENTREGADO';
+    const puedeFacturar = pedido.estado === 'ENTREGADO' || pedido.estado === 'REMITIDO';
+
 
     return (
         <Container className="mt-4">
+            {error && <Alert variant="danger">{error}</Alert>}
+
             <Row className="align-items-center mb-4">
                 <Col><h1>Detalle del Pedido #{pedido.idPedido}</h1></Col>
                 <Col xs="auto" className="d-flex flex-wrap justify-content-end gap-2">
                     <Button variant="secondary" onClick={() => navigate('/pedidos')}>Volver</Button>
-                    {/* --- CAMBIO AQUÍ: Botón para ir al formulario de edición --- */}
-                    {!isFinalizado && (
+                    
+                    {puedeEditar && (
                         <Button variant="primary" onClick={() => navigate(`/pedidos/editar/${id}`)}>
                             Editar Pedido
                         </Button>
                     )}
-                    {pedido.estado === 'ENTREGADO' && (
-                        <>
-                            <Button variant="info" onClick={handleFacturarPedido}>Facturar</Button>
-                            <Button variant="warning" onClick={handleRemitirPedido}>Remitir</Button>
-                        </>
+
+                    {puedeEntregar && (
+                        <Button variant="success" onClick={handleEntregarPedido}>
+                            Marcar como Entregado
+                        </Button>
                     )}
-                    {!isFinalizado && (
-                        <Button variant="success" onClick={handleEntregarPedido}>Marcar como Entregado</Button>
+
+                    {puedeRemitir && (
+                        <Button variant="warning" onClick={handleRemitirPedido}>Remitir</Button>
                     )}
-                    {!isFinalizado && (
-                        <Button variant="danger" onClick={handleDeletePedido}>Eliminar Pedido</Button>
+                    
+                    {puedeFacturar && (
+                         <Button variant="info" onClick={handleFacturarPedido}>Facturar</Button>
+                    )}
+
+                    {puedeEditar && (
+                        <Button variant="danger" onClick={handleDeletePedido}>
+                            Eliminar Pedido
+                        </Button>
                     )}
                 </Col>
             </Row>
@@ -204,15 +211,15 @@ const PedidoDetail = () => {
                             const subtotal = (parseFloat(item.precioUnitario) || 0) * (parseInt(item.cantidadPedida) || 0);
                             return (
                                 <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
-                                    <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)} disabled={isFinalizado} /></td>
+                                    <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={() => {}} disabled={!puedeEditar} /></td>
                                     <td className="align-middle">{item.cantidadPedida}</td>
                                     <td className="align-middle">{item.productoDescripcion}</td>
                                     <td className="align-middle">{item.especificacion}</td>
                                     <td className="align-middle text-end">${parseFloat(item.precioUnitario || 0).toFixed(2)}</td>
                                     <td className="align-middle text-end">${subtotal.toFixed(2)}</td>
-                                    <td><Form.Control type="text" placeholder="Obs." value={item.notasItem || ''} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)} size="sm" disabled={isFinalizado} /></td>
+                                    <td><Form.Control type="text" placeholder="Obs." value={item.notasItem || ''} onChange={() => {}} size="sm" disabled={!puedeEditar} /></td>
                                     <td className="text-center align-middle">
-                                        {!isFinalizado && (
+                                        {puedeEditar && (
                                             <ButtonGroup size="sm">
                                                 <Button variant="outline-primary" onClick={() => handleShowEditModal(item)}>Editar</Button>
                                                 <Button variant="outline-danger" onClick={() => handleDeleteItem(item.idPedidoItem)}>X</Button>
@@ -225,7 +232,7 @@ const PedidoDetail = () => {
                     </tbody>
                 </Table>
             </Card>
-
+            
             <Modal show={showEditModal} onHide={handleCloseEditModal}>
                 <Modal.Header closeButton><Modal.Title>Editar Ítem</Modal.Title></Modal.Header>
                 <Modal.Body>
