@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { PencilFill, TrashFill } from 'react-bootstrap-icons';
+import { PencilFill, TrashFill, CheckCircleFill } from 'react-bootstrap-icons';
 
 const formatDateForAPI = (date) => date.toISOString().split('T')[0];
 
@@ -44,10 +44,12 @@ const Pedidos = () => {
         fetchPedidos();
     }, [selectedDate]);
 
+    // --- FUNCIÓN CORREGIDA ---
     const handleDeletePedido = async (idPedido) => {
         if (window.confirm('¿Estás ABSOLUTAMENTE SEGURA de que quieres eliminar este pedido? Esta acción no se puede deshacer.')) {
             try {
                 await apiClient.delete(`/pedidos/${idPedido}`);
+                // Forzamos la recarga de la lista para que el pedido eliminado desaparezca.
                 fetchPedidos(); 
             } catch (err) {
                 setError('No se pudo eliminar el pedido.');
@@ -56,11 +58,9 @@ const Pedidos = () => {
         }
     };
 
-    // --- FUNCIÓN PARA OBTENER LA CLASE CSS BASADA EN EL ESTADO ---
-    const getRowClass = (estado) => {
-        switch (estado) {
-            case 'ENTREGADO':
-                return 'pedido-entregado';
+    const getRowClass = (pedido) => {
+        if (pedido.entregado) return 'pedido-entregado';
+        switch (pedido.estado) {
             case 'REMITIDO':
                 return 'pedido-remitido';
             case 'FACTURADO':
@@ -84,25 +84,33 @@ const Pedidos = () => {
                         <th>ID</th>
                         <th>Cliente</th>
                         <th>Estado</th>
+                        <th className="text-center">Entregado</th>
                         <th>Notas</th>
                         <th className="text-center">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {pedidos.map(pedido => {
-                        const isEditable = !['ENTREGADO', 'CANCELADO', 'REMITIDO', 'FACTURADO'].includes(pedido.estado);
+                        const isCancelado = pedido.estado === 'CANCELADO';
+                        const isFacturado = pedido.estado === 'FACTURADO';
+                        const isRemitido = pedido.estado === 'REMITIDO';
+                        const puedeEditar = !isCancelado && !isFacturado && !isRemitido && !pedido.entregado;
+
                         return (
                             <tr
                                 key={pedido.idPedido}
-                                className={getRowClass(pedido.estado)}
+                                className={getRowClass(pedido)}
                             >
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.idPedido}</td>
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</td>
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.estado}</td>
+                                <td className="text-center align-middle">
+                                    {pedido.entregado && <CheckCircleFill className="text-success" />}
+                                </td>
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.notas}</td>
                                 
                                 <td className="text-center">
-                                    {isEditable && (
+                                    {puedeEditar && (
                                         <div className="d-flex justify-content-center gap-2">
                                             <Button 
                                                 variant="outline-primary"
@@ -137,7 +145,7 @@ const Pedidos = () => {
             </Row>
 
             <Card className="p-3 mb-4">
-                <Row className="align-items-center">
+                 <Row className="align-items-center">
                     <Col md={4}>
                         <Form.Label>Seleccionar fecha:</Form.Label>
                         <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} dateFormat="dd/MM/yyyy" className="form-control" />
@@ -164,4 +172,3 @@ const Pedidos = () => {
 };
 
 export default Pedidos;
-

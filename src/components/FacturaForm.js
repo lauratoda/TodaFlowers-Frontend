@@ -25,9 +25,10 @@ const FacturaForm = () => {
             try {
                 // Cargar pedido
                 const pedidoResponse = await apiClient.get(`/pedidos/${idPedido}`);
-                setPedido(pedidoResponse.data);
+                const pedidoData = pedidoResponse.data;
+                setPedido(pedidoData);
 
-                const itemsConPrecio = pedidoResponse.data.items.map(item => ({
+                const itemsConPrecio = pedidoData.items.map(item => ({
                     productoDescripcion: item.productoDescripcion,
                     especificacion: item.especificacion,
                     cantidad: item.cantidadPedida,
@@ -38,9 +39,11 @@ const FacturaForm = () => {
                 // Cargar emisores
                 const emisoresResponse = await apiClient.get('/emisores');
                 setEmisores(emisoresResponse.data);
-                // Si solo hay un emisor, seleccionarlo por defecto
-                if (emisoresResponse.data.length === 1) {
-                    setIdEmisorSeleccionado(emisoresResponse.data[0].idEmisor);
+
+                // --- CAMBIO CLAVE AQUÍ ---
+                // Si el cliente del pedido tiene un emisor por defecto, lo pre-seleccionamos.
+                if (pedidoData.cliente && pedidoData.cliente.idEmisor) {
+                    setIdEmisorSeleccionado(pedidoData.cliente.idEmisor);
                 }
 
             } catch (err) {
@@ -79,14 +82,12 @@ const FacturaForm = () => {
             return;
         }
 
-        // Verificamos que todos los items tengan un precio
         const itemsSinPrecio = facturaItems.filter(item => !item.precioUnitario || parseFloat(item.precioUnitario) <= 0);
         if (itemsSinPrecio.length > 0) {
             setError('Por favor, completa el precio para todos los ítems y asegúrate de que sean mayores a cero.');
             return;
         }
 
-        // Creamos el objeto que enviaremos al backend
         const facturaRequest = {
             idEmisor: parseInt(idEmisorSeleccionado),
             items: facturaItems.map(item => ({
@@ -100,7 +101,7 @@ const FacturaForm = () => {
         try {
             const response = await apiClient.post(`/pedidos/${idPedido}/facturar`, facturaRequest);
             alert(`¡Factura #${response.data.idFactura} creada con éxito!`);
-            navigate(`/pedidos/${idPedido}`); // Volvemos al detalle del pedido
+            navigate(`/pedidos/${idPedido}`);
         } catch (err) {
             setError(err.response?.data?.message || 'Error al generar la factura.');
             console.error(err);
@@ -199,5 +200,6 @@ const FacturaForm = () => {
 };
 
 export default FacturaForm;
+
 
 
