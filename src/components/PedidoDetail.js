@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal, InputGroup, ButtonGroup } from 'react-bootstrap';
+import { Container, Card, Spinner, Alert, Row, Col, Form, Table, Button, Modal, InputGroup, ButtonGroup, ListGroup } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
 import { CheckCircleFill } from 'react-bootstrap-icons';
+
+const initialAdelantoState = {
+    monto: '',
+    metodoPago: 'Efectivo',
+    detalle: ''
+};
 
 const PedidoDetail = () => {
     const { id } = useParams();
@@ -12,7 +18,10 @@ const PedidoDetail = () => {
     const [error, setError] = useState('');
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const [showAdelantoModal, setShowAdelantoModal] = useState(false);
+    const [adelanto, setAdelanto] = useState(initialAdelantoState);
 
+    // ... (todas las funciones de manejo de datos como fetchPedidoDetail, handleAction, etc. permanecen sin cambios)
     const fetchPedidoDetail = async () => {
         try {
             const response = await apiClient.get(`/pedidos/${id}`);
@@ -35,7 +44,6 @@ const PedidoDetail = () => {
         if (confirmMessage && !window.confirm(confirmMessage)) {
             return;
         }
-        
         try {
             await action();
             if (successMessage) alert(successMessage);
@@ -43,6 +51,24 @@ const PedidoDetail = () => {
             fetchPedidoDetail();
         } catch (err) {
             setError(err.response?.data?.message || errorMessage);
+            console.error(err);
+        }
+    };
+
+    const handleRegistrarAdelanto = async (e) => {
+        e.preventDefault();
+        if (!adelanto.monto || adelanto.monto <= 0) {
+            alert('Por favor, ingresa un monto válido.');
+            return;
+        }
+        try {
+            await apiClient.post(`/pedidos/${id}/adelanto`, adelanto);
+            setShowAdelantoModal(false);
+            setAdelanto(initialAdelantoState);
+            setLoading(true);
+            fetchPedidoDetail();
+        } catch (err) {
+            setError(err.response?.data?.message || 'No se pudo registrar el adelanto.');
             console.error(err);
         }
     };
@@ -130,17 +156,21 @@ const PedidoDetail = () => {
             console.error("Error al actualizar el ítem", err);
         }
     };
-
-    // --- FUNCIÓN AÑADIDA ---
+    
     const calcularTotalPedido = () => {
-        if (!pedido || !pedido.items) return '0.00';
+        if (!pedido || !pedido.items) return 0;
         return pedido.items.reduce((total, item) => {
             const precio = parseFloat(item.precioUnitario) || 0;
             const cantidad = parseInt(item.cantidadPedida) || 0;
             return total + (precio * cantidad);
-        }, 0).toFixed(2);
+        }, 0);
     };
-    
+
+    const calcularTotalAdelantos = () => {
+        if (!pedido || !pedido.adelantos) return 0;
+        return pedido.adelantos.reduce((total, adelanto) => total + adelanto.importe, 0);
+    };
+
     if (loading) {
         return <Container className="mt-4 text-center"><Spinner animation="border" /><p>Cargando detalle...</p></Container>;
     }
@@ -154,6 +184,10 @@ const PedidoDetail = () => {
         );
     }
 
+    const totalPedido = calcularTotalPedido();
+    const totalAdelantos = calcularTotalAdelantos();
+    const saldoPendiente = totalPedido - totalAdelantos;
+
     const isCancelado = pedido.estado === 'CANCELADO';
     const isFacturado = pedido.estado === 'FACTURADO';
     const isRemitido = pedido.estado === 'REMITIDO';
@@ -165,81 +199,165 @@ const PedidoDetail = () => {
         <Container className="mt-4">
             {error && <Alert variant="danger">{error}</Alert>}
 
+            {/* --- BARRA DE BOTONES SIMPLIFICADA Y SEPARADA --- */}
             <Row className="align-items-center mb-4">
                 <Col><h1>Detalle del Pedido #{pedido.idPedido}</h1></Col>
                 <Col xs="auto" className="d-flex flex-wrap justify-content-end gap-2">
                     <Button variant="secondary" onClick={() => navigate('/pedidos')}>Volver</Button>
+                    {puedeEditar && <Button variant="outline-primary" onClick={() => setShowAdelantoModal(true)}>Registrar Seña</Button>}
                     {puedeEditar && <Button variant="primary" onClick={() => navigate(`/pedidos/editar/${id}`)}>Editar Pedido</Button>}
                     {puedeRemitir && <Button variant="warning" onClick={handleRemitirPedido}>Remitir</Button>}
                     {puedeFacturar && <Button variant="info" onClick={handleFacturarPedido}>Facturar</Button>}
                     {!isCancelado && <Button variant={pedido.entregado ? "outline-success" : "success"} onClick={handleToggleEntregado}>{pedido.entregado ? "Marcar como NO Entregado" : "Marcar como Entregado"}</Button>}
-                    {puedeEditar && <Button variant="danger" onClick={handleDeletePedido}>Eliminar Pedido</Button>}
+                    {puedeEditar && <Button variant="danger" onClick={handleDeletePedido}>Eliminar</Button>}
                 </Col>
             </Row>
             
-            <Card>
-                <Card.Header>Información General</Card.Header>
-                <Card.Body>
-                    <Row>
-                        <Col md={6}>
-                            <p><strong>Cliente:</strong> {pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</p>
-                            <p><strong>Fecha de Entrega:</strong> {new Date(pedido.fechaEntrega).toLocaleDateString('es-AR')}</p>
-                        </Col>
-                        <Col md={6}>
-                            <p><strong>Estado:</strong> {pedido.estado}</p>
-                            <p><strong>Entrega:</strong> 
-                                {pedido.entregado 
-                                    ? <span className="text-success"><CheckCircleFill /> Entregado</span> 
-                                    : <span className="text-muted">Pendiente de Entrega</span>
-                                }
-                            </p>
-                        </Col>
-                    </Row>
-                    {/* --- CAMBIO AQUÍ --- */}
-                    <hr />
-                    <Row>
-                        <Col>
-                            {pedido.notas && <p><strong>Notas:</strong> {pedido.notas}</p>}
-                        </Col>
-                        <Col className="text-end">
-                            <h4>Total Aproximado: ${calcularTotalPedido()}</h4>
-                        </Col>
-                    </Row>
-                </Card.Body>
-            </Card>
+            {/* ... (resto del componente sin cambios) ... */}
+            <Row>
+                <Col md={8}>
+                    <Card className="mb-4">
+                        <Card.Header>Información General</Card.Header>
+                        <Card.Body>
+                            <Row>
+                                <Col md={6}>
+                                    <p><strong>Cliente:</strong> {pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</p>
+                                    <p><strong>Fecha de Entrega:</strong> {new Date(pedido.fechaEntrega).toLocaleDateString('es-AR')}</p>
+                                </Col>
+                                <Col md={6}>
+                                    <p><strong>Estado:</strong> {pedido.estado}</p>
+                                    <p><strong>Entrega:</strong> 
+                                        {pedido.entregado 
+                                            ? <span className="text-success"><CheckCircleFill /> Entregado</span> 
+                                            : <span className="text-muted">Pendiente de Entrega</span>
+                                        }
+                                    </p>
+                                </Col>
+                            </Row>
+                            {pedido.notas && <><hr /><p><strong>Notas:</strong> {pedido.notas}</p></>}
+                        </Card.Body>
+                    </Card>
 
-            <Card className="mt-4">
-                <Card.Header>Checklist de Items</Card.Header>
-                <Table striped bordered hover responsive>
-                    <thead>
-                        <tr>
-                            <th>OK</th><th>Cant.</th><th>Detalle</th><th>Especificación</th><th>Precio Unit.</th><th>Subtotal</th><th>Observaciones</th><th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {pedido.items.map(item => (
-                            <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
-                                <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)} disabled={!puedeEditar} /></td>
-                                <td className="align-middle">{item.cantidadPedida}</td>
-                                <td className="align-middle">{item.productoDescripcion}</td>
-                                <td className="align-middle">{item.especificacion}</td>
-                                <td className="align-middle text-end">${(item.precioUnitario || 0).toFixed(2)}</td>
-                                <td className="align-middle text-end">${((item.precioUnitario || 0) * item.cantidadPedida).toFixed(2)}</td>
-                                <td><Form.Control type="text" placeholder="Obs." value={item.notasItem || ''} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)} size="sm" disabled={!puedeEditar} /></td>
-                                <td className="text-center align-middle">
-                                    {puedeEditar && (
-                                        <ButtonGroup size="sm">
-                                            <Button variant="outline-primary" onClick={() => handleShowEditModal(item)}>Editar</Button>
-                                            <Button variant="outline-danger" onClick={() => handleDeleteItem(item.idPedidoItem)}>X</Button>
-                                        </ButtonGroup>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </Table>
-            </Card>
-            
+                    <Card>
+                        <Card.Header>Checklist de Items</Card.Header>
+                        <Table striped bordered hover responsive>
+                            <thead>
+                                <tr>
+                                    <th>OK</th><th>Cant.</th><th>Detalle</th><th>Especificación</th><th>Precio Unit.</th><th>Subtotal</th><th>Observaciones</th><th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pedido.items.map(item => (
+                                    <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
+                                        <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)} disabled={!puedeEditar} /></td>
+                                        <td className="align-middle">{item.cantidadPedida}</td>
+                                        <td className="align-middle">{item.productoDescripcion}</td>
+                                        <td className="align-middle">{item.especificacion}</td>
+                                        <td className="align-middle text-end">${(item.precioUnitario || 0).toFixed(2)}</td>
+                                        <td className="align-middle text-end">${((item.precioUnitario || 0) * item.cantidadPedida).toFixed(2)}</td>
+                                        <td><Form.Control type="text" placeholder="Obs." value={item.notasItem || ''} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'notasItem', e.target.value)} size="sm" disabled={!puedeEditar} /></td>
+                                        <td className="text-center align-middle">
+                                            {puedeEditar && (
+                                                <ButtonGroup size="sm">
+                                                    <Button variant="outline-primary" onClick={() => handleShowEditModal(item)}>Editar</Button>
+                                                    <Button variant="outline-danger" onClick={() => handleDeleteItem(item.idPedidoItem)}>X</Button>
+                                                </ButtonGroup>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </Card>
+                </Col>
+
+                <Col md={4}>
+                    <Card>
+                        <Card.Header>Resumen Financiero</Card.Header>
+                        <Card.Body>
+                            <div className="d-flex justify-content-between">
+                                <span>Total Pedido:</span>
+                                <strong>${totalPedido.toFixed(2)}</strong>
+                            </div>
+                            <div className="d-flex justify-content-between">
+                                <span>Total Señado:</span>
+                                <strong className="text-success">-${totalAdelantos.toFixed(2)}</strong>
+                            </div>
+                            <hr />
+                            <div className="d-flex justify-content-between h4">
+                                <span>Saldo Pendiente:</span>
+                                <strong>${saldoPendiente.toFixed(2)}</strong>
+                            </div>
+                        </Card.Body>
+                        {pedido.adelantos && pedido.adelantos.length > 0 && (
+                            <>
+                                <Card.Header>Adelantos Recibidos</Card.Header>
+                                <ListGroup variant="flush">
+                                    {pedido.adelantos.map(p => (
+                                        <ListGroup.Item key={p.idPago} className="d-flex justify-content-between align-items-center">
+                                            <span>{new Date(p.fecha).toLocaleDateString('es-AR')} - {p.tipoPago}</span>
+                                            <strong>${p.importe.toFixed(2)}</strong>
+                                        </ListGroup.Item>
+                                    ))}
+                                </ListGroup>
+                            </>
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
+            <Modal show={showAdelantoModal} onHide={() => setShowAdelantoModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Registrar Seña / Adelanto</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form onSubmit={handleRegistrarAdelanto}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Monto</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text>$</InputGroup.Text>
+                                <Form.Control
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={adelanto.monto}
+                                    onChange={(e) => setAdelanto({ ...adelanto, monto: e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                    required
+                                    autoFocus
+                                />
+                            </InputGroup>
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Método de Pago</Form.Label>
+                            <Form.Select
+                                value={adelanto.metodoPago}
+                                onChange={(e) => setAdelanto({ ...adelanto, metodoPago: e.target.value })}
+                            >
+                                <option>Efectivo</option>
+                                <option>Transferencia</option>
+                                <option>Cheque</option>
+                                <option>Mixto</option>
+                            </Form.Select>
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Detalle (Opcional)</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={2}
+                                value={adelanto.detalle}
+                                onChange={(e) => setAdelanto({ ...adelanto, detalle: e.target.value })}
+                            />
+                        </Form.Group>
+                        <div className="d-flex justify-content-end">
+                            <Button variant="primary" type="submit">
+                                Guardar Adelanto
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
             <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Editar Ítem</Modal.Title>
