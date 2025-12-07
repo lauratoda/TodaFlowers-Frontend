@@ -1,23 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Table, Spinner, Alert, Button, Row, Col, Form, InputGroup } from 'react-bootstrap'; // Añadimos Form, InputGroup
+import { Container, Table, Spinner, Alert, Button, Row, Col, Form, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/api';
-import { Search, TrashFill } from 'react-bootstrap-icons'; // Importamos iconos
+import { Search, TrashFill, PencilFill, Receipt } from 'react-bootstrap-icons';
 
 const Clientes = () => {
     const [clientes, setClientes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [terminoBusqueda, setTerminoBusqueda] = useState(''); // Estado para la búsqueda
+    const [terminoBusqueda, setTerminoBusqueda] = useState('');
     const navigate = useNavigate();
 
-    // El efecto ahora depende del término de búsqueda
     useEffect(() => {
         const fetchClientes = async () => {
             setLoading(true);
             setError('');
             try {
-                // Pasamos el término de búsqueda como un parámetro 'q'
                 const response = await apiClient.get(`/clientes?q=${terminoBusqueda}`);
                 setClientes(response.data.content || []);
             } catch (err) {
@@ -28,26 +26,21 @@ const Clientes = () => {
             }
         };
 
-        // Usamos un temporizador para no hacer una llamada a la API en cada tecla presionada
         const timerId = setTimeout(() => {
             fetchClientes();
-        }, 500); // Espera 500ms después de que el usuario deja de escribir
+        }, 500);
 
-        return () => clearTimeout(timerId); // Limpia el temporizador si el componente se desmonta
+        return () => clearTimeout(timerId);
     }, [terminoBusqueda]);
 
-    const handleDelete = async (idCliente) => {
+    const handleDelete = async (idCliente, e) => {
+        e.stopPropagation();
         if (window.confirm('¿Estás segura de que quieres eliminar este cliente? Esta acción no se puede deshacer.')) {
             try {
                 await apiClient.delete(`/clientes/${idCliente}`);
-                // Refrescamos la lista para que el cliente eliminado desaparezca
-                setTerminoBusqueda(prev => prev); // Esto es un truco para forzar la re-ejecución del useEffect
-                // Una forma más limpia sería llamar a fetchClientes() directamente, pero esto funciona bien.
                 const response = await apiClient.get(`/clientes?q=${terminoBusqueda}`);
                 setClientes(response.data.content || []);
-
             } catch (err) {
-                // Mostramos el error específico que viene del backend
                 setError(err.response?.data?.message || 'No se pudo eliminar el cliente.');
                 console.error(err);
             }
@@ -68,13 +61,13 @@ const Clientes = () => {
             <Row className="align-items-center mb-4">
                 <Col><h1>Gestión de Clientes</h1></Col>
                 <Col xs="auto">
+                    {/* Este botón ahora será de color #F68E8D gracias al CSS */}
                     <Button variant="primary" onClick={() => navigate('/clientes/nuevo')}>
                         Crear Cliente
                     </Button>
                 </Col>
             </Row>
 
-            {/* --- BARRA DE BÚSQUEDA --- */}
             <Row className="mb-3">
                 <Col>
                     <InputGroup>
@@ -95,9 +88,9 @@ const Clientes = () => {
                 <thead>
                     <tr>
                         <th>Nombre / Razón Social</th>
-                        <th>Contacto (Tel/WhatsApp)</th>
+                        <th>Contacto</th>
                         <th>Localidad</th>
-                        {/* --- NUEVA COLUMNA DE ACCIONES --- */}
+                        <th className="text-center">Cta. Cte.</th>
                         <th className="text-center">Acciones</th>
                     </tr>
                 </thead>
@@ -108,18 +101,48 @@ const Clientes = () => {
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${cliente.idCliente}`)}>
                                     {cliente.nombreFantasia || `${cliente.nombre || ''} ${cliente.apellido || ''}`}
                                 </td>
-                                <td>{cliente.whatsapp || cliente.telefono}</td>
-                                <td>{cliente.localidad}</td>
+                                <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${cliente.idCliente}`)}>{cliente.whatsapp || cliente.telefono}</td>
+                                <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${cliente.idCliente}`)}>{cliente.localidad}</td>
+                                
                                 <td className="text-center">
-                                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(cliente.idCliente)}>
-                                        <TrashFill />
+                                    {/* --- BOTÓN DE CTA. CTE. AHORA ES SECUNDARIO --- */}
+                                    <Button 
+                                        variant="outline-secondary"
+                                        size="sm"
+                                        onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${cliente.idCliente}/cuenta`) }}
+                                        title="Ver Estado de Cuenta"
+                                    >
+                                        <Receipt />
                                     </Button>
+                                </td>
+
+                                <td className="text-center">
+                                    <div className="d-flex justify-content-center gap-2">
+                                        <Button 
+                                            variant="outline-secondary"
+                                            className="btn-accion-secundaria"
+                                            size="sm"
+                                            onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${cliente.idCliente}`) }}
+                                            title="Editar Cliente"
+                                        >
+                                            <PencilFill />
+                                        </Button>
+                                        <Button 
+                                            variant="outline-danger"
+                                            className="btn-accion-secundaria"
+                                            size="sm"
+                                            onClick={(e) => handleDelete(cliente.idCliente, e)}
+                                            title="Eliminar Cliente"
+                                        >
+                                            <TrashFill />
+                                        </Button>
+                                    </div>
                                 </td>
                             </tr>
                         ))
                     ) : (
                         <tr>
-                            <td colSpan="4" className="text-center">No se encontraron clientes.</td>
+                            <td colSpan="5" className="text-center">No se encontraron clientes.</td>
                         </tr>
                     )}
                 </tbody>

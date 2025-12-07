@@ -1,3 +1,36 @@
+/* ========================================= */
+/* --- Personalización de Tema Bootstrap --- */
+/* ========================================= */
+
+/* Sobrescribe directamente el botón primario */
+.btn-primary {
+  background-color: #F68E8D !important;
+  border-color: #F68E8D !important;
+  color: #fff !important;
+}
+
+/* Estado hover (cuando el mouse está encima) */
+.btn-primary:hover {
+  background-color: #e57a79 !important;
+  border-color: #e57a79 !important;
+}
+
+/* Estado active (cuando se hace clic) y focus (para accesibilidad) */
+.btn-primary:active, .btn-primary:focus {
+  background-color: #d46867 !important;
+  border-color: #d46867 !important;
+  box-shadow: 0 0 0 0.25rem rgba(246, 142, 141, 0.5) !important;
+}
+
+/* Estado deshabilitado */
+.btn-primary:disabled {
+    background-color: #F68E8D !important;
+    border-color: #F68E8D !important;
+    opacity: 0.65;
+}
+
+
+/* ... (el resto de tu App.css) ... */
 /* --- ESTILOS PARA LA TABLA DE PEDIDOS (VERSIÓN MEJORADA) --- */
 
 /*
@@ -52,4 +85,27 @@
 .table > tbody > tr.pedido-facturado:hover {
     --bs-table-hover-bg: #c3e6cb;
     --bs-table-hover-color: #155724;
+}
+
+/* ========================================= */
+/* --- Estilos de Botones Personalizados --- */
+/* ========================================= */
+
+/* Botón Principal de Llamada a la Acción (CTA) */
+.btn-cta-principal {
+    background-color: #F68E8D;
+    border-color: #F68E8D;
+    color: #fff; /* Texto blanco para un buen contraste */
+    font-weight: 500;
+}
+
+.btn-cta-principal:hover {
+    background-color: #e57a79; /* Un tono ligeramente más oscuro para el hover */
+    border-color: #e57a79;
+    color: #fff;
+}
+
+/* Estilo para los botones de acción secundarios */
+.btn-accion-secundaria {
+    border: none; /* Quitamos el borde para un look más limpio */
 }

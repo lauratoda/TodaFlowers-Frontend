@@ -9,6 +9,8 @@ import PedidoDetail from './components/PedidoDetail';
 import Clientes from './components/Clientes';
 import ClienteForm from './components/ClienteForm';
 import MainLayout from './components/MainLayout';
+// --- 1. IMPORTAMOS EL NUEVO COMPONENTE ---
+import EstadoCuenta from './components/EstadoCuenta'; 
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 function App() {
@@ -60,6 +62,17 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
+                  {/* --- 2. AÑADIMOS LA NUEVA RUTA AQUÍ --- */}
+                  <Route 
+                    path="/clientes/:id/cuenta" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <EstadoCuenta />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
 
                   {/* --- RUTAS DE PEDIDOS --- */}
                   <Route 
@@ -82,7 +95,6 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
-                  {/* --- RUTA AÑADIDA PARA EDICIÓN --- */}
                   <Route 
                     path="/pedidos/editar/:id" 
                     element={
@@ -116,7 +128,6 @@ function App() {
                     } 
                   />
 
-                  {/* La ruta principal ahora redirige al dashboard */}
                   <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
           </div>
