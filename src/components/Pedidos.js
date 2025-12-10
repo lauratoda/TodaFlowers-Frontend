@@ -31,7 +31,7 @@ const Pedidos = () => {
         try {
             const formattedDate = formatDateForAPI(selectedDate);
             const response = await apiClient.get(`/pedidos?fechaEntrega=${formattedDate}`);
-            setPedidos(response.data);
+            setPedidos(response.data); // El backend ahora devuelve una lista de PedidoListDto
         } catch (err) {
             setError('No se pudo cargar la lista de pedidos para la fecha seleccionada.');
             console.error(err);
@@ -44,12 +44,10 @@ const Pedidos = () => {
         fetchPedidos();
     }, [selectedDate]);
 
-    // --- FUNCIÓN CORREGIDA ---
     const handleDeletePedido = async (idPedido) => {
         if (window.confirm('¿Estás ABSOLUTAMENTE SEGURA de que quieres eliminar este pedido? Esta acción no se puede deshacer.')) {
             try {
                 await apiClient.delete(`/pedidos/${idPedido}`);
-                // Forzamos la recarga de la lista para que el pedido eliminado desaparezca.
                 fetchPedidos(); 
             } catch (err) {
                 setError('No se pudo eliminar el pedido.');
@@ -102,7 +100,12 @@ const Pedidos = () => {
                                 className={getRowClass(pedido)}
                             >
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.idPedido}</td>
-                                <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</td>
+                                
+                                {/* --- CAMBIO CLAVE AQUÍ --- */}
+                                <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>
+                                    {pedido.nombreCliente}
+                                </td>
+                                
                                 <td style={{ cursor: 'pointer' }} onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}>{pedido.estado}</td>
                                 <td className="text-center align-middle">
                                     {pedido.entregado && <CheckCircleFill className="text-success" />}
