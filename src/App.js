@@ -118,6 +118,16 @@ function App() {
 
                   {/* --- RUTAS DE FACTURACIÓN --- */}
                   <Route 
+                    path="/facturas/nuevo" 
+                    element={
+                      <PrivateRoute>
+                        <MainLayout>
+                          <FacturaForm />
+                        </MainLayout>
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
                     path="/facturas/nuevo/:idPedido" 
                     element={
                       <PrivateRoute>

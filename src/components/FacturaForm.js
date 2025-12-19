@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Form, Button, Card, Row, Col, Spinner, Alert, Table, InputGroup } from 'react-bootstrap';
-import { useParams, useNavigate } from 'react-router-dom';
+// ✅ 1. Import useSearchParams to read query parameters
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../api/api';
 
 const FacturaForm = () => {
-    const { idPedido } = useParams();
+    // ✅ 2. Use useSearchParams to get the idPedido from the URL query string
+    const [searchParams] = useSearchParams();
+    const idPedido = searchParams.get('idPedido');
     const navigate = useNavigate();
 
     // Estado para el pedido original y los items de la factura
@@ -21,6 +24,13 @@ const FacturaForm = () => {
 
     // Cargar datos del pedido original y la lista de emisores
     useEffect(() => {
+        // ✅ 3. Add a guard to prevent fetching if idPedido is not available yet
+        if (!idPedido) {
+            setError('No se especificó un ID de pedido para facturar.');
+            setLoading(false);
+            return;
+        }
+
         const fetchData = async () => {
             try {
                 // Cargar pedido
@@ -40,7 +50,6 @@ const FacturaForm = () => {
                 const emisoresResponse = await apiClient.get('/emisores');
                 setEmisores(emisoresResponse.data);
 
-                // --- CAMBIO CLAVE AQUÍ ---
                 // Si el cliente del pedido tiene un emisor por defecto, lo pre-seleccionamos.
                 if (pedidoData.cliente && pedidoData.cliente.idEmisor) {
                     setIdEmisorSeleccionado(pedidoData.cliente.idEmisor);
@@ -89,6 +98,8 @@ const FacturaForm = () => {
         }
 
         const facturaRequest = {
+            // ✅ THIS IS THE FIX: Include the client's ID
+            idCliente: pedido.cliente.idCliente,
             idEmisor: parseInt(idEmisorSeleccionado),
             items: facturaItems.map(item => ({
                 productoDescripcion: item.productoDescripcion,
@@ -99,6 +110,7 @@ const FacturaForm = () => {
         };
 
         try {
+            // The endpoint to create a factura from a pedido is on the PedidoController
             const response = await apiClient.post(`/pedidos/${idPedido}/facturar`, facturaRequest);
             alert(`¡Factura #${response.data.idFactura} creada con éxito!`);
             navigate(`/pedidos/${idPedido}`);
@@ -200,6 +212,4 @@ const FacturaForm = () => {
 };
 
 export default FacturaForm;
-
-
 
