@@ -10,6 +10,18 @@ const initialAdelantoState = {
     detalle: ''
 };
 
+// ✅ 1. Función para parsear fecha string (YYYY-MM-DD) a Date local sin offset de UTC
+const parseDateFromAPI = (dateString) => {
+    if (!dateString) return null;
+    // Dividimos el string para evitar que el navegador lo interprete como UTC
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return null; // Formato inválido
+    const [year, month, day] = parts.map(Number);
+    // new Date(year, monthIndex, day) crea la fecha en la zona horaria local del navegador.
+    return new Date(year, month - 1, day);
+};
+
+
 const PedidoDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -24,7 +36,6 @@ const PedidoDetail = () => {
     const fetchPedidoDetail = async () => {
         try {
             const response = await apiClient.get(`/pedidos/${id}`);
-            // The backend now sends the complete DTO, so we can set it directly.
             setPedido(response.data);
             setError(''); 
         } catch (err) {
@@ -51,8 +62,7 @@ const PedidoDetail = () => {
             setLoading(true);
             fetchPedidoDetail();
         } catch (err) {
-            const errorMessageText = err.response?.data?.error || err.response?.data?.message || err.response?.data || errorMessage;
-            setError(errorMessageText);
+            setError(err.response?.data?.message || errorMessage);
             console.error(err);
         }
     };
@@ -75,23 +85,12 @@ const PedidoDetail = () => {
         }
     };
     
-    const handleToggleEntregado = () => {
-        if (pedido.entregado) {
-            handleAction(
-                () => apiClient.put(`/pedidos/${id}/deshacer-entrega`),
-                '¿Estás segura de que quieres marcar este pedido como NO ENTREGADO?',
-                'Pedido marcado como no entregado.',
-                'No se pudo actualizar el estado de entrega.'
-            );
-        } else {
-            handleAction(
-                () => apiClient.put(`/pedidos/${id}/entregar`),
-                '¿Estás segura de que quieres marcar este pedido como ENTREGADO?',
-                'Pedido marcado como entregado.',
-                'No se pudo actualizar el estado de entrega.'
-            );
-        }
-    };
+    const handleToggleEntregado = () => handleAction(
+        () => apiClient.put(`/pedidos/${id}/entregar`),
+        `¿Estás segura de que quieres marcar este pedido como ${pedido.entregado ? 'NO ENTREGADO' : 'ENTREGADO'}?`,
+        null,
+        'No se pudo actualizar el estado de entrega.'
+    );
 
     const handleRemitirPedido = () => handleAction(
         () => apiClient.post(`/pedidos/${id}/remitir`),
@@ -171,8 +170,8 @@ const PedidoDetail = () => {
     };
     
     const calcularTotalPedido = () => {
-        // We can keep the defensive check, it doesn't hurt
-        return (pedido?.items ?? []).reduce((total, item) => {
+        if (!pedido || !pedido.items) return 0;
+        return pedido.items.reduce((total, item) => {
             const precio = parseFloat(item.precioUnitario) || 0;
             const cantidad = parseInt(item.cantidadPedida) || 0;
             return total + (precio * cantidad);
@@ -180,7 +179,8 @@ const PedidoDetail = () => {
     };
 
     const calcularTotalAdelantos = () => {
-        return (pedido?.adelantos ?? []).reduce((total, adelanto) => total + adelanto.importe, 0);
+        if (!pedido || !pedido.adelantos) return 0;
+        return pedido.adelantos.reduce((total, adelanto) => total + adelanto.importe, 0);
     };
 
     if (loading) {
@@ -209,7 +209,7 @@ const PedidoDetail = () => {
 
     return (
         <Container className="mt-4">
-            {error && <Alert variant="danger" onClose={() => setError('')} dismissible>{error}</Alert>}
+            {error && <Alert variant="danger">{error}</Alert>}
 
             <Row className="align-items-center mb-4">
                 <Col><h1>Detalle del Pedido #{pedido.idPedido}</h1></Col>
@@ -231,8 +231,9 @@ const PedidoDetail = () => {
                         <Card.Body>
                             <Row>
                                 <Col md={6}>
-                                    <p><strong>Cliente:</strong> {pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre ?? ''} ${pedido.cliente?.apellido ?? ''}`}</p>
-                                    <p><strong>Fecha de Entrega:</strong> {pedido.fechaEntrega ? new Date(pedido.fechaEntrega).toLocaleDateString('es-AR') : 'N/A'}</p>
+                                    <p><strong>Cliente:</strong> {pedido.cliente?.nombreFantasia || `${pedido.cliente?.nombre} ${pedido.cliente?.apellido}`}</p>
+                                    {/* ✅ 2. Usamos la función para mostrar la fecha de entrega */}
+                                    <p><strong>Fecha de Entrega:</strong> {parseDateFromAPI(pedido.fechaEntrega)?.toLocaleDateString('es-AR') || 'N/A'}</p>
                                 </Col>
                                 <Col md={6}>
                                     <p><strong>Estado:</strong> {pedido.estado}</p>
@@ -257,7 +258,7 @@ const PedidoDetail = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {(pedido.items ?? []).map(item => (
+                                {pedido.items.map(item => (
                                     <tr key={item.idPedidoItem} className={item.separado ? 'table-success' : ''}>
                                         <td className="text-center align-middle"><Form.Check type="checkbox" checked={item.separado} onChange={(e) => handleChecklistItemUpdate(item.idPedidoItem, 'separado', e.target.checked)} disabled={!puedeEditar} /></td>
                                         <td className="align-middle">{item.cantidadPedida}</td>
@@ -299,13 +300,14 @@ const PedidoDetail = () => {
                                 <strong>${saldoPendiente.toFixed(2)}</strong>
                             </div>
                         </Card.Body>
-                        {(pedido.adelantos ?? []).length > 0 && (
+                        {pedido.adelantos && pedido.adelantos.length > 0 && (
                             <>
                                 <Card.Header>Adelantos Recibidos</Card.Header>
                                 <ListGroup variant="flush">
-                                    {(pedido.adelantos ?? []).map(p => (
+                                    {pedido.adelantos.map(p => (
                                         <ListGroup.Item key={p.idPago} className="d-flex justify-content-between align-items-center">
-                                            <span>{p.fecha ? new Date(p.fecha).toLocaleDateString('es-AR') : 'N/A'} - {p.tipoPago}</span>
+                                            {/* ✅ 3. Usamos la función también para la fecha del adelanto */}
+                                            <span>{parseDateFromAPI(p.fecha)?.toLocaleDateString('es-AR') || 'N/A'} - {p.tipoPago}</span>
                                             <strong>${p.importe.toFixed(2)}</strong>
                                         </ListGroup.Item>
                                     ))}

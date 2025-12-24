@@ -5,6 +5,22 @@ import apiClient from '../api/api';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
+// ✅ 1. Función segura para formatear fecha local (YYYY-MM-DD)
+const formatDateForAPI = (date) => {
+    if (!date) return null;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
+// ✅ 2. Función para parsear fecha string (YYYY-MM-DD) a Date local sin offset
+const parseDateFromAPI = (dateString) => {
+    if (!dateString) return new Date();
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
 const PedidoForm = () => {
     const { id } = useParams(); // Obtenemos el ID de la URL
     const isEditing = !!id; // True si hay un ID, false si no (estamos creando)
@@ -35,7 +51,10 @@ const PedidoForm = () => {
                     
                     // Pre-populamos el formulario con los datos del pedido
                     setIdCliente(pedido.cliente.idCliente);
-                    setFechaEntrega(new Date(pedido.fechaEntrega));
+                    
+                    // ✅ 3. Usamos la función segura para parsear la fecha
+                    setFechaEntrega(parseDateFromAPI(pedido.fechaEntrega));
+                    
                     setNotas(pedido.notas || '');
                     setItems(pedido.items.length > 0 ? pedido.items : [{ productoDescripcion: '', especificacion: '', cantidadPedida: 1, precioUnitario: '' }]);
                 }
@@ -75,7 +94,8 @@ const PedidoForm = () => {
 
         const pedidoData = {
             idCliente: parseInt(idCliente),
-            fechaEntrega: fechaEntrega.toISOString().split('T')[0],
+            // ✅ 4. Usamos la función segura para enviar la fecha
+            fechaEntrega: formatDateForAPI(fechaEntrega),
             notas,
             items: items.map(item => ({
                 idPedidoItem: item.idPedidoItem || null, // Importante para la actualización
@@ -176,4 +196,3 @@ const PedidoForm = () => {
 };
 
 export default PedidoForm;
-
