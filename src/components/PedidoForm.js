@@ -5,7 +5,7 @@ import apiClient from '../api/api';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-// ✅ 1. Función segura para formatear fecha local (YYYY-MM-DD)
+// Función segura para formatear fecha local (YYYY-MM-DD)
 const formatDateForAPI = (date) => {
     if (!date) return null;
     const y = date.getFullYear();
@@ -14,7 +14,7 @@ const formatDateForAPI = (date) => {
     return `${y}-${m}-${d}`;
 };
 
-// ✅ 2. Función para parsear fecha string (YYYY-MM-DD) a Date local sin offset
+// Función para parsear fecha string (YYYY-MM-DD) a Date local sin offset
 const parseDateFromAPI = (dateString) => {
     if (!dateString) return new Date();
     const [year, month, day] = dateString.split('-').map(Number);
@@ -51,10 +51,7 @@ const PedidoForm = () => {
                     
                     // Pre-populamos el formulario con los datos del pedido
                     setIdCliente(pedido.cliente.idCliente);
-                    
-                    // ✅ 3. Usamos la función segura para parsear la fecha
                     setFechaEntrega(parseDateFromAPI(pedido.fechaEntrega));
-                    
                     setNotas(pedido.notas || '');
                     setItems(pedido.items.length > 0 ? pedido.items : [{ productoDescripcion: '', especificacion: '', cantidadPedida: 1, precioUnitario: '' }]);
                 }
@@ -94,7 +91,6 @@ const PedidoForm = () => {
 
         const pedidoData = {
             idCliente: parseInt(idCliente),
-            // ✅ 4. Usamos la función segura para enviar la fecha
             fechaEntrega: formatDateForAPI(fechaEntrega),
             notas,
             items: items.map(item => ({
@@ -133,7 +129,6 @@ const PedidoForm = () => {
 
     return (
         <Container className="mt-4">
-            {/* --- CAMBIO AQUÍ: Título dinámico --- */}
             <h1>{isEditing ? `Editar Pedido #${id}` : 'Crear Nuevo Pedido'}</h1>
             {error && <Alert variant="danger">{error}</Alert>}
             <Form onSubmit={handleSubmit}>
@@ -155,7 +150,14 @@ const PedidoForm = () => {
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label>Fecha de Entrega</Form.Label>
-                                <DatePicker selected={fechaEntrega} onChange={(date) => setFechaEntrega(date)} dateFormat="dd/MM/yyyy" className="form-control" />
+                                {/* ✅ CAMBIO: Añadimos minDate para deshabilitar fechas pasadas solo al crear */}
+                                <DatePicker 
+                                    selected={fechaEntrega} 
+                                    onChange={(date) => setFechaEntrega(date)} 
+                                    dateFormat="dd/MM/yyyy" 
+                                    className="form-control"
+                                    minDate={!isEditing ? new Date() : null}
+                                />
                             </Form.Group>
                         </Col>
                     </Row>
@@ -196,3 +198,4 @@ const PedidoForm = () => {
 };
 
 export default PedidoForm;
+
