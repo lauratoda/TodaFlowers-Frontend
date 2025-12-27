@@ -89,15 +89,14 @@ const Dashboard = () => {
             ) : (
                 summary && (
                     <Row>
-                        {/* Columna Izquierda: Pedidos y Recordatorios */}
-                        <Col md={7}>
+                        {/* ✅ CAMBIO: Columna Izquierda ahora más pequeña (1/4) */}
+                        <Col md={3}>
                             <Card className="mb-4">
                                 <Card.Header>Pedidos para Hoy ({summary.pedidosParaHoy.length})</Card.Header>
                                 <ListGroup variant="flush">
                                     {summary.pedidosParaHoy.length > 0 ? (
                                         summary.pedidosParaHoy.map(pedido => {
                                             const variant = getEstadoVariant(pedido.estado);
-                                            // Ajustamos el color del texto para asegurar contraste
                                             const textColor = ['warning', 'info', 'light'].includes(variant) ? 'text-dark' : 'text-white';
                                             
                                             return (
@@ -106,7 +105,7 @@ const Dashboard = () => {
                                                     action
                                                     onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}
                                                     style={{ cursor: 'pointer' }}
-                                                    variant={variant} // Aplicamos el color a toda la fila
+                                                    variant={variant}
                                                     className={`d-flex justify-content-between align-items-center ${textColor}`}
                                                 >
                                                     <div className="ms-2 me-auto">
@@ -151,8 +150,8 @@ const Dashboard = () => {
                             </Card>
                         </Col>
 
-                        {/* Columna Derecha: Caja Diaria */}
-                        <Col md={5}>
+                        {/* ✅ CAMBIO: Columna Derecha ahora más grande (3/4) */}
+                        <Col md={9}>
                             <Card>
                                 <Card.Header>Resumen de Caja del Día ({selectedDate.toLocaleDateString()})</Card.Header>
                                 <Card.Body>
@@ -172,3 +171,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
