@@ -6,6 +6,7 @@ import Pedidos from './components/Pedidos';
 import PedidoForm from './components/PedidoForm';
 import FacturaForm from './components/FacturaForm';
 import PedidoDetail from './components/PedidoDetail';
+import RemitoForm from './components/RemitoForm'; 
 import Clientes from './components/Clientes';
 import ClienteForm from './components/ClienteForm';
 import MainLayout from './components/MainLayout';
@@ -137,7 +138,16 @@ function App() {
                       </PrivateRoute>
                     } 
                   />
-
+                   <Route 
+                     path="/remitos/nuevo" 
+                     element={
+                       <PrivateRoute>
+                         <MainLayout>
+                           <RemitoForm />
+                         </MainLayout>
+                       </PrivateRoute>
+                     } 
+                   />
                   <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
           </div>

@@ -15,23 +15,23 @@ const formatDateForAPI = (date) => {
     return `${y}-${m}-${d}`;
 };
 
-// Helper para obtener el color de fondo (variant) según el estado
+// ✅ CAMBIO: Nueva paleta de colores para priorizar estados
 const getEstadoVariant = (estado) => {
     switch (estado) {
         case 'PENDIENTE':
-            return 'secondary'; // Gris
+            return 'danger';    // Rojo - ¡Atención, necesita preparación!
         case 'EN_PREPARACION':
         case 'PREPARADO_INCOMPLETO':
-            return 'info';      // Celeste
+            return 'info';      // Celeste - En progreso
         case 'PREPARADO_COMPLETO':
         case 'LISTO_PARA_DESPACHO':
-            return 'primary';   // Azul
+            return 'primary';   // Azul - Listo para el siguiente paso
         case 'REMITIDO':
-            return 'warning';   // Amarillo
+            return 'secondary'; // Gris - Ya gestionado, menos prioritario
         case 'FACTURADO':
-            return 'success';   // Verde
+            return 'success';   // Verde - Completado
         case 'CANCELADO':
-            return 'danger';    // Rojo
+            return 'dark';      // Gris oscuro - Inactivo
         default:
             return 'light';
     }
@@ -89,49 +89,52 @@ const Dashboard = () => {
             ) : (
                 summary && (
                     <Row>
-                        {/* ✅ CAMBIO: Columna Izquierda ahora más pequeña (1/4) */}
+                        {/* Columna Izquierda: Pedidos y Recordatorios */}
                         <Col md={3}>
                             <Card className="mb-4">
                                 <Card.Header>Pedidos para Hoy ({summary.pedidosParaHoy.length})</Card.Header>
-                                <ListGroup variant="flush">
-                                    {summary.pedidosParaHoy.length > 0 ? (
-                                        summary.pedidosParaHoy.map(pedido => {
-                                            const variant = getEstadoVariant(pedido.estado);
-                                            const textColor = ['warning', 'info', 'light'].includes(variant) ? 'text-dark' : 'text-white';
-                                            
-                                            return (
-                                                <ListGroup.Item
-                                                    key={pedido.idPedido}
-                                                    action
-                                                    onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}
-                                                    style={{ cursor: 'pointer' }}
-                                                    variant={variant}
-                                                    className={`d-flex justify-content-between align-items-center ${textColor}`}
-                                                >
-                                                    <div className="ms-2 me-auto">
-                                                        <div className="fw-bold">
-                                                            {pedido.cliente.nombreFantasia || `${pedido.cliente.nombre} ${pedido.cliente.apellido}`}
+                                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    <ListGroup variant="flush">
+                                        {summary.pedidosParaHoy.length > 0 ? (
+                                            summary.pedidosParaHoy.map(pedido => {
+                                                const variant = getEstadoVariant(pedido.estado);
+                                                // Ajustamos el color del texto para asegurar contraste
+                                                const textColor = ['info', 'light'].includes(variant) ? 'text-dark' : 'text-white';
+                                                
+                                                return (
+                                                    <ListGroup.Item
+                                                        key={pedido.idPedido}
+                                                        action
+                                                        onClick={() => navigate(`/pedidos/${pedido.idPedido}`)}
+                                                        style={{ cursor: 'pointer' }}
+                                                        variant={variant} // Aplicamos el color a toda la fila
+                                                        className={`d-flex justify-content-between align-items-center ${textColor}`}
+                                                    >
+                                                        <div className="ms-2 me-auto">
+                                                            <div className="fw-bold">
+                                                                {pedido.cliente.nombreFantasia || `${pedido.cliente.nombre} ${pedido.cliente.apellido}`}
+                                                            </div>
+                                                            {pedido.notas && <small className={textColor === 'text-white' ? 'text-white-50' : 'text-muted'}>{pedido.notas}</small>}
                                                         </div>
-                                                        {pedido.notas && <small className={textColor === 'text-white' ? 'text-white-50' : 'text-muted'}>{pedido.notas}</small>}
-                                                    </div>
-                                                    
-                                                    <div className="text-end">
-                                                        <span className="d-block small fw-bold">
-                                                            {pedido.estado.replace(/_/g, ' ')}
-                                                        </span>
-                                                        {pedido.entregado && (
-                                                            <Badge bg="light" text="success" pill className="mt-1">
-                                                                <CheckCircleFill /> Entregado
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                </ListGroup.Item>
-                                            );
-                                        })
-                                    ) : (
-                                        <ListGroup.Item>No hay pedidos para entregar hoy.</ListGroup.Item>
-                                    )}
-                                </ListGroup>
+                                                        
+                                                        <div className="text-end">
+                                                            <span className="d-block small fw-bold">
+                                                                {pedido.estado.replace(/_/g, ' ')}
+                                                            </span>
+                                                            {pedido.entregado && (
+                                                                <Badge bg="light" text="success" pill className="mt-1">
+                                                                    <CheckCircleFill /> Entregado
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </ListGroup.Item>
+                                                );
+                                            })
+                                        ) : (
+                                            <ListGroup.Item>No hay pedidos para entregar hoy.</ListGroup.Item>
+                                        )}
+                                    </ListGroup>
+                                </div>
                             </Card>
 
                             <Card>
@@ -150,7 +153,7 @@ const Dashboard = () => {
                             </Card>
                         </Col>
 
-                        {/* ✅ CAMBIO: Columna Derecha ahora más grande (3/4) */}
+                        {/* Columna Derecha: Caja Diaria */}
                         <Col md={9}>
                             <Card>
                                 <Card.Header>Resumen de Caja del Día ({selectedDate.toLocaleDateString()})</Card.Header>
@@ -171,4 +174,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
